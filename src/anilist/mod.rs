@@ -3,7 +3,13 @@ mod api;
 use anyhow::{bail, Result};
 use api::FuzzyDate;
 use derivative::Derivative;
+use governor::{
+    clock::DefaultClock,
+    state::{InMemoryState, NotKeyed},
+    Quota, RateLimiter,
+};
 use lazy_static::lazy_static;
+use nonzero_ext::nonzero;
 use petgraph::{algo::tarjan_scc, graphmap::UnGraphMap};
 use reqwest::{
     header::{HeaderMap, ACCEPT, CONTENT_TYPE},
@@ -114,6 +120,7 @@ lazy_static! {
 pub(crate) struct AniList {
     client: Client,
     username: String,
+    lim: RateLimiter<NotKeyed, InMemoryState, DefaultClock>,
 }
 
 impl AniList {
@@ -121,6 +128,7 @@ impl AniList {
         AniList {
             client: Client::new(),
             username: username.to_string(),
+            lim: RateLimiter::direct(Quota::per_minute(nonzero!(90u32))),
         }
     }
 
@@ -173,6 +181,8 @@ impl AniList {
                         "page": page,
                     }
                 });
+
+                self.lim.until_ready().await;
 
                 let res = self
                     .client
@@ -266,6 +276,10 @@ impl AniList {
                 "userName": self.username
             }
         });
+
+        if let Err(e) = self.lim.check() {
+            bail!("{e}");
+        }
 
         let res = self
             .client
