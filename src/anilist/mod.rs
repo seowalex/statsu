@@ -19,14 +19,6 @@ pub(crate) struct Media {
     pub(crate) title: String,
 }
 
-impl From<&api::Media> for Media {
-    fn from(media: &api::Media) -> Self {
-        Self {
-            title: media.title.user_preferred.to_owned(),
-        }
-    }
-}
-
 static MEDIA_QUERY: &str = "
     query ($ids: [Int], $page: Int) {
         Page (page: $page, perPage: 50) {
@@ -35,6 +27,14 @@ static MEDIA_QUERY: &str = "
             }
             media (id_in: $ids) {
                 id
+                title {
+                    userPreferred
+                }
+                startDate {
+                    year
+                    month
+                    day
+                }
                 relations {
                     edges {
                         relationType (version: 2)
@@ -101,7 +101,17 @@ impl AniList {
     }
 
     pub(crate) async fn get_franchises(&self) -> Result<Vec<Franchise>> {
-        let mut media_list = self.get_media_list().await?;
+        let media_list = self.get_media_list().await?;
+        let mut visited_media_list = media_list
+            .iter()
+            .map(|media| {
+                (
+                    media.id,
+                    media.title.user_preferred.to_owned(),
+                    media.start_date,
+                )
+            })
+            .collect::<Vec<(i32, String, api::FuzzyDate)>>();
         let mut visited_ids = media_list
             .iter()
             .map(|media| media.id)
@@ -165,6 +175,11 @@ impl AniList {
                                 };
                             }) {
                                 franchise_graph.add_edge(media.id, relation.node.id, ());
+                                visited_media_list.push((
+                                    media.id,
+                                    media.title.user_preferred.to_owned(),
+                                    media.start_date,
+                                ));
                             }
                         }
 
@@ -188,30 +203,28 @@ impl AniList {
             visited_ids.extend(&ids);
         }
 
-        media_list.sort_by_key(|media| media.start_date);
+        visited_media_list.sort_by_key(|media| media.2);
 
         let mut franchises = tarjan_scc(&franchise_graph)
             .iter()
-            .map(|franchise| {
-                let entries = media_list
+            .map(|franchise| Franchise {
+                title: visited_media_list
+                    .iter()
+                    .find(|media| franchise.contains(&media.0))
+                    .map(|media| media.1.to_owned())
+                    .unwrap_or_default(),
+                entries: visited_media_list
                     .iter()
                     .filter_map(|media| {
-                        if franchise.contains(&media.id) {
-                            Some(Media::from(media))
+                        if franchise.contains(&media.0) {
+                            Some(Media {
+                                title: media.1.to_owned(),
+                            })
                         } else {
                             None
                         }
                     })
-                    .collect::<Vec<Media>>();
-
-                Franchise {
-                    title: entries
-                        .iter()
-                        .map(|entry| entry.title.to_owned())
-                        .next()
-                        .unwrap_or_default(),
-                    entries,
-                }
+                    .collect(),
             })
             .collect::<Vec<Franchise>>();
         franchises.sort_by(|a, b| a.title.cmp(&b.title));

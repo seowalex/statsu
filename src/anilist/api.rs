@@ -26,7 +26,7 @@ pub(crate) struct MediaData {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Page {
     pub(crate) page_info: PageInfo,
-    pub(crate) media: Vec<MediaIdAndRelation>,
+    pub(crate) media: Vec<Media>,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -61,13 +61,6 @@ pub(crate) struct MediaList {
 
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct MediaIdAndRelation {
-    pub(crate) id: i32,
-    pub(crate) relations: MediaConnection,
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct Media {
     pub(crate) id: i32,
     pub(crate) title: MediaTitle,
@@ -84,9 +77,19 @@ pub(crate) struct MediaTitle {
 #[derive(Clone, Copy, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FuzzyDate {
-    year: i32,
+    year: Option<i32>,
     month: Option<i32>,
     day: Option<i32>,
+}
+
+impl Default for FuzzyDate {
+    fn default() -> Self {
+        Self {
+            year: Some(i32::MAX),
+            month: Some(12),
+            day: Some(31),
+        }
+    }
 }
 
 #[derive(Clone, Deserialize)]
