@@ -1,6 +1,8 @@
 mod api;
 
 use anyhow::{bail, Result};
+use api::FuzzyDate;
+use derivative::Derivative;
 use lazy_static::lazy_static;
 use petgraph::{algo::tarjan_scc, graphmap::UnGraphMap};
 use reqwest::{
@@ -17,6 +19,26 @@ pub(crate) struct Franchise {
 
 pub(crate) struct Media {
     pub(crate) title: String,
+}
+
+impl From<&api::Media> for Media {
+    fn from(media: &api::Media) -> Self {
+        Self {
+            title: media.title.user_preferred.to_owned(),
+        }
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(PartialEq, Eq, Hash)]
+struct VisitedMedia {
+    id: i32,
+    #[derivative(PartialEq = "ignore")]
+    #[derivative(Hash = "ignore")]
+    title: String,
+    #[derivative(PartialEq = "ignore")]
+    #[derivative(Hash = "ignore")]
+    start_date: FuzzyDate,
 }
 
 static MEDIA_QUERY: &str = "
@@ -101,21 +123,15 @@ impl AniList {
     }
 
     pub(crate) async fn get_franchises(&self) -> Result<Vec<Franchise>> {
-        let media_list = self.get_media_list().await?;
+        let mut media_list = self.get_media_list().await?;
         let mut visited_media_list = media_list
             .iter()
-            .map(|media| {
-                (
-                    media.id,
-                    media.title.user_preferred.to_owned(),
-                    media.start_date,
-                )
+            .map(|media| VisitedMedia {
+                id: media.id,
+                title: media.title.user_preferred.to_owned(),
+                start_date: media.start_date,
             })
-            .collect::<Vec<(i32, String, api::FuzzyDate)>>();
-        let mut visited_ids = media_list
-            .iter()
-            .map(|media| media.id)
-            .collect::<HashSet<i32>>();
+            .collect::<HashSet<_>>();
         let mut franchise_graph = UnGraphMap::from_edges(media_list.iter().flat_map(|media| {
             media.relations.edges.iter().filter_map(|relation| {
                 return match relation.relation_type {
@@ -132,7 +148,11 @@ impl AniList {
         }));
 
         loop {
-            let ids = &franchise_graph.nodes().collect() - &visited_ids;
+            let ids = &franchise_graph.nodes().collect()
+                - &visited_media_list
+                    .iter()
+                    .map(|media| media.id)
+                    .collect::<HashSet<_>>();
 
             if ids.len() == 0 {
                 break;
@@ -175,12 +195,13 @@ impl AniList {
                                 };
                             }) {
                                 franchise_graph.add_edge(media.id, relation.node.id, ());
-                                visited_media_list.push((
-                                    media.id,
-                                    media.title.user_preferred.to_owned(),
-                                    media.start_date,
-                                ));
                             }
+
+                            visited_media_list.insert(VisitedMedia {
+                                id: media.id,
+                                title: media.title.user_preferred.to_owned(),
+                                start_date: media.start_date,
+                            });
                         }
 
                         if !data.page.page_info.has_next_page {
@@ -199,34 +220,32 @@ impl AniList {
                     }
                 }
             }
-
-            visited_ids.extend(&ids);
         }
 
-        visited_media_list.sort_by_key(|media| media.2);
+        media_list.sort_by_key(|media| media.start_date);
+        let mut visited_media_list = visited_media_list.into_iter().collect::<Vec<_>>();
+        visited_media_list.sort_by_key(|media| media.start_date);
 
         let mut franchises = tarjan_scc(&franchise_graph)
             .iter()
             .map(|franchise| Franchise {
                 title: visited_media_list
                     .iter()
-                    .find(|media| franchise.contains(&media.0))
-                    .map(|media| media.1.to_owned())
+                    .find(|media| franchise.contains(&media.id))
+                    .map(|media| media.title.to_owned())
                     .unwrap_or_default(),
-                entries: visited_media_list
+                entries: media_list
                     .iter()
                     .filter_map(|media| {
-                        if franchise.contains(&media.0) {
-                            Some(Media {
-                                title: media.1.to_owned(),
-                            })
+                        if franchise.contains(&media.id) {
+                            Some(Media::from(media))
                         } else {
                             None
                         }
                     })
                     .collect(),
             })
-            .collect::<Vec<Franchise>>();
+            .collect::<Vec<_>>();
         franchises.sort_by(|a, b| a.title.cmp(&b.title));
 
         Ok(franchises)
