@@ -62,6 +62,7 @@ static MEDIA_QUERY: &str = "
                         relationType (version: 2)
                         node {
                             id
+                            type
                         }
                     }
                 }
@@ -90,6 +91,7 @@ static MEDIA_LIST_QUERY: &str = "
                                 relationType (version: 2)
                                 node {
                                     id
+                                    type
                                 }
                             }
                         }
@@ -134,14 +136,17 @@ impl AniList {
             .collect::<HashSet<_>>();
         let mut franchise_graph = UnGraphMap::from_edges(media_list.iter().flat_map(|media| {
             media.relations.edges.iter().filter_map(|relation| {
-                return match relation.relation_type {
-                    api::MediaRelation::Prequel
-                    | api::MediaRelation::Sequel
-                    | api::MediaRelation::Parent
-                    | api::MediaRelation::SideStory
-                    | api::MediaRelation::Summary
-                    | api::MediaRelation::Alternative
-                    | api::MediaRelation::SpinOff => Some((media.id, relation.node.id)),
+                return match (relation.relation_type, relation.node.r#type) {
+                    (
+                        api::MediaRelation::Prequel
+                        | api::MediaRelation::Sequel
+                        | api::MediaRelation::Parent
+                        | api::MediaRelation::SideStory
+                        | api::MediaRelation::Summary
+                        | api::MediaRelation::Alternative
+                        | api::MediaRelation::SpinOff,
+                        api::MediaType::Anime,
+                    ) => Some((media.id, relation.node.id)),
                     _ => None,
                 };
             })
@@ -183,14 +188,17 @@ impl AniList {
                     api::Result::Media { data } => {
                         for media in &data.page.media {
                             for relation in media.relations.edges.iter().filter(|relation| {
-                                return match relation.relation_type {
-                                    api::MediaRelation::Prequel
-                                    | api::MediaRelation::Sequel
-                                    | api::MediaRelation::Parent
-                                    | api::MediaRelation::SideStory
-                                    | api::MediaRelation::Summary
-                                    | api::MediaRelation::Alternative
-                                    | api::MediaRelation::SpinOff => true,
+                                return match (relation.relation_type, relation.node.r#type) {
+                                    (
+                                        api::MediaRelation::Prequel
+                                        | api::MediaRelation::Sequel
+                                        | api::MediaRelation::Parent
+                                        | api::MediaRelation::SideStory
+                                        | api::MediaRelation::Summary
+                                        | api::MediaRelation::Alternative
+                                        | api::MediaRelation::SpinOff,
+                                        api::MediaType::Anime,
+                                    ) => true,
                                     _ => false,
                                 };
                             }) {

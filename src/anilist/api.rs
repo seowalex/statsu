@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::cmp::Ordering;
 
 #[derive(Clone, Deserialize)]
 #[serde(untagged)]
@@ -74,7 +75,7 @@ pub(crate) struct MediaTitle {
     pub(crate) user_preferred: String,
 }
 
-#[derive(Clone, Copy, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FuzzyDate {
     year: Option<i32>,
@@ -82,13 +83,35 @@ pub(crate) struct FuzzyDate {
     day: Option<i32>,
 }
 
-impl Default for FuzzyDate {
-    fn default() -> Self {
-        Self {
-            year: Some(i32::MAX),
-            month: Some(12),
-            day: Some(31),
+impl PartialOrd for FuzzyDate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FuzzyDate {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.year != other.year {
+            if self.year.is_some() != other.year.is_some() {
+                return other.year.cmp(&self.year);
+            }
+
+            return self.year.cmp(&other.year);
         }
+
+        if self.month != other.month {
+            if self.month.is_some() != other.month.is_some() {
+                return other.month.cmp(&self.month);
+            }
+
+            return self.month.cmp(&other.month);
+        }
+
+        if self.day.is_some() != other.day.is_some() {
+            return other.day.cmp(&self.day);
+        }
+
+        self.day.cmp(&other.day)
     }
 }
 
@@ -102,7 +125,7 @@ pub(crate) struct MediaConnection {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaEdge {
     pub(crate) relation_type: MediaRelation,
-    pub(crate) node: MediaId,
+    pub(crate) node: MediaIdAndType,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -125,6 +148,14 @@ pub(crate) enum MediaRelation {
 
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct MediaId {
+pub(crate) struct MediaIdAndType {
     pub(crate) id: i32,
+    pub(crate) r#type: MediaType,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub(crate) enum MediaType {
+    Anime,
+    Manga,
 }
