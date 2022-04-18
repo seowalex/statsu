@@ -17,6 +17,8 @@ async fn main() -> Result<()> {
     let franchises = anilist.get_franchises().await?;
 
     for franchise in franchises {
+        println!("\x1b[1m{}\x1b[0m", franchise.title);
+
         for entry in franchise.entries {
             println!("{}", entry.title);
         }

@@ -19,8 +19,8 @@ pub(crate) struct Media {
     pub(crate) title: String,
 }
 
-impl From<&api::MediaWithTitle> for Media {
-    fn from(media: &api::MediaWithTitle) -> Self {
+impl From<&api::Media> for Media {
+    fn from(media: &api::Media) -> Self {
         Self {
             title: media.title.user_preferred.to_owned(),
         }
@@ -58,6 +58,7 @@ static MEDIA_LIST_QUERY: &str = "
                         title {
                             userPreferred
                         }
+                        seasonInt
                         relations {
                             edges {
                                 relationType (version: 2)
@@ -96,26 +97,24 @@ impl AniList {
     }
 
     pub(crate) async fn get_franchises(&self) -> Result<Vec<Franchise>> {
-        let client = Client::new();
-        let media_list = self.get_media_list().await?;
+        let mut media_list = self.get_media_list().await?;
         let mut visited_ids = media_list
             .iter()
             .map(|media| media.id)
             .collect::<HashSet<i32>>();
         let mut franchise_graph = UnGraphMap::from_edges(media_list.iter().flat_map(|media| {
-            media
-                .relations
-                .edges
-                .iter()
-                .filter(|relation| {
-                    return match relation.relation_type {
-                        api::MediaRelation::Adaptation
-                        | api::MediaRelation::Character
-                        | api::MediaRelation::Source => false,
-                        _ => true,
-                    };
-                })
-                .map(|relation| (media.id, relation.node.id))
+            media.relations.edges.iter().filter_map(|relation| {
+                return match relation.relation_type {
+                    api::MediaRelation::Prequel
+                    | api::MediaRelation::Sequel
+                    | api::MediaRelation::Parent
+                    | api::MediaRelation::SideStory
+                    | api::MediaRelation::Summary
+                    | api::MediaRelation::Alternative
+                    | api::MediaRelation::SpinOff => Some((media.id, relation.node.id)),
+                    _ => None,
+                };
+            })
         }));
 
         loop {
@@ -136,7 +135,8 @@ impl AniList {
                     }
                 });
 
-                let res = client
+                let res = self
+                    .client
                     .post("https://graphql.anilist.co/")
                     .headers((*HEADERS).to_owned())
                     .json(&body)
@@ -150,10 +150,14 @@ impl AniList {
                         for media in &data.page.media {
                             for relation in media.relations.edges.iter().filter(|relation| {
                                 return match relation.relation_type {
-                                    api::MediaRelation::Adaptation
-                                    | api::MediaRelation::Character
-                                    | api::MediaRelation::Source => false,
-                                    _ => true,
+                                    api::MediaRelation::Prequel
+                                    | api::MediaRelation::Sequel
+                                    | api::MediaRelation::Parent
+                                    | api::MediaRelation::SideStory
+                                    | api::MediaRelation::Summary
+                                    | api::MediaRelation::Alternative
+                                    | api::MediaRelation::SpinOff => true,
+                                    _ => false,
                                 };
                             }) {
                                 franchise_graph.add_edge(media.id, relation.node.id, ());
@@ -180,20 +184,35 @@ impl AniList {
             visited_ids.extend(&ids);
         }
 
+        media_list.sort_by_key(|media| media.season_int);
+
         Ok(tarjan_scc(&franchise_graph)
             .iter()
-            .map(|franchise| Franchise {
-                title: "".to_string(),
-                entries: media_list
+            .map(|franchise| {
+                let entries = media_list
                     .iter()
-                    .filter(|media| franchise.contains(&media.id))
-                    .map(|media| Media::from(media))
-                    .collect(),
+                    .filter_map(|media| {
+                        if franchise.contains(&media.id) {
+                            Some(Media::from(media))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<Media>>();
+
+                Franchise {
+                    title: entries
+                        .iter()
+                        .map(|entry| entry.title.to_owned())
+                        .next()
+                        .unwrap_or_default(),
+                    entries,
+                }
             })
             .collect())
     }
 
-    async fn get_media_list(&self) -> Result<Vec<api::MediaWithTitle>> {
+    async fn get_media_list(&self) -> Result<Vec<api::Media>> {
         let body = json!({
             "query": MEDIA_LIST_QUERY,
             "variables": {
@@ -213,11 +232,11 @@ impl AniList {
 
         match res {
             api::Result::MediaList { data } => {
-                if let Some(media_list) = data.media_list_collection.lists.into_iter().next() {
+                if let Some(media_list) = data.media_list_collection.lists.iter().next() {
                     return Ok(media_list
                         .entries
-                        .into_iter()
-                        .map(|entry| entry.media)
+                        .iter()
+                        .map(|entry| entry.media.clone())
                         .collect());
                 }
             }
