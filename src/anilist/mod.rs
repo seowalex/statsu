@@ -58,7 +58,11 @@ static MEDIA_LIST_QUERY: &str = "
                         title {
                             userPreferred
                         }
-                        seasonInt
+                        startDate {
+                            year
+                            month
+                            day
+                        }
                         relations {
                             edges {
                                 relationType (version: 2)
@@ -184,9 +188,9 @@ impl AniList {
             visited_ids.extend(&ids);
         }
 
-        media_list.sort_by_key(|media| media.season_int);
+        media_list.sort_by_key(|media| media.start_date);
 
-        Ok(tarjan_scc(&franchise_graph)
+        let mut franchises = tarjan_scc(&franchise_graph)
             .iter()
             .map(|franchise| {
                 let entries = media_list
@@ -209,7 +213,10 @@ impl AniList {
                     entries,
                 }
             })
-            .collect())
+            .collect::<Vec<Franchise>>();
+        franchises.sort_by(|a, b| a.title.cmp(&b.title));
+
+        Ok(franchises)
     }
 
     async fn get_media_list(&self) -> Result<Vec<api::Media>> {

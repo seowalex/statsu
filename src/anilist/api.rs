@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use serde_with::{serde_as, DefaultOnNull};
 
 #[derive(Clone, Deserialize)]
 #[serde(untagged)]
@@ -30,7 +29,7 @@ pub(crate) struct Page {
     pub(crate) media: Vec<MediaIdAndRelation>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PageInfo {
     pub(crate) has_next_page: bool,
@@ -67,14 +66,12 @@ pub(crate) struct MediaIdAndRelation {
     pub(crate) relations: MediaConnection,
 }
 
-#[serde_as]
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Media {
     pub(crate) id: i32,
     pub(crate) title: MediaTitle,
-    #[serde_as(as = "DefaultOnNull")]
-    pub(crate) season_int: i32,
+    pub(crate) start_date: FuzzyDate,
     pub(crate) relations: MediaConnection,
 }
 
@@ -84,20 +81,28 @@ pub(crate) struct MediaTitle {
     pub(crate) user_preferred: String,
 }
 
+#[derive(Clone, Copy, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FuzzyDate {
+    year: i32,
+    month: Option<i32>,
+    day: Option<i32>,
+}
+
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaConnection {
     pub(crate) edges: Vec<MediaEdge>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaEdge {
     pub(crate) relation_type: MediaRelation,
     pub(crate) node: MediaId,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub(crate) enum MediaRelation {
     Adaptation,
@@ -115,7 +120,7 @@ pub(crate) enum MediaRelation {
     Contains,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaId {
     pub(crate) id: i32,
