@@ -16,15 +16,15 @@ async fn main() -> Result<()> {
     let anilist = AniList::new(&args[1]);
     let franchises = anilist.get_franchises().await?;
 
-    for franchise in franchises {
-        println!("\x1b[1m{}\x1b[0m", franchise.title);
-
-        for entry in franchise.entries {
+    for franchise in &franchises {
+        for entry in &franchise.entries {
             println!("{}", entry.title);
         }
 
         println!();
     }
+
+    println!("{} franchises", franchises.len());
 
     Ok(())
 }

@@ -27,7 +27,7 @@ pub(crate) struct MediaData {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Page {
     pub(crate) page_info: PageInfo,
-    pub(crate) media: Vec<Media>,
+    pub(crate) media: Vec<MediaIdAndRelations>,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -66,6 +66,13 @@ pub(crate) struct Media {
     pub(crate) id: i32,
     pub(crate) title: MediaTitle,
     pub(crate) start_date: FuzzyDate,
+    pub(crate) relations: MediaConnection,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MediaIdAndRelations {
+    pub(crate) id: i32,
     pub(crate) relations: MediaConnection,
 }
 

@@ -1,8 +1,6 @@
 mod api;
 
 use anyhow::{bail, Result};
-use api::FuzzyDate;
-use derivative::Derivative;
 use governor::{
     clock::DefaultClock,
     state::{InMemoryState, NotKeyed},
@@ -19,7 +17,6 @@ use serde_json::json;
 use std::collections::HashSet;
 
 pub(crate) struct Franchise {
-    pub(crate) title: String,
     pub(crate) entries: Vec<Media>,
 }
 
@@ -35,18 +32,6 @@ impl From<&api::Media> for Media {
     }
 }
 
-#[derive(Derivative)]
-#[derivative(PartialEq, Eq, Hash)]
-struct VisitedMedia {
-    id: i32,
-    #[derivative(PartialEq = "ignore")]
-    #[derivative(Hash = "ignore")]
-    title: String,
-    #[derivative(PartialEq = "ignore")]
-    #[derivative(Hash = "ignore")]
-    start_date: FuzzyDate,
-}
-
 static MEDIA_QUERY: &str = "
     query ($ids: [Int], $page: Int) {
         Page (page: $page, perPage: 50) {
@@ -55,14 +40,6 @@ static MEDIA_QUERY: &str = "
             }
             media (id_in: $ids) {
                 id
-                title {
-                    userPreferred
-                }
-                startDate {
-                    year
-                    month
-                    day
-                }
                 relations {
                     edges {
                         relationType (version: 2)
@@ -134,13 +111,9 @@ impl AniList {
 
     pub(crate) async fn get_franchises(&self) -> Result<Vec<Franchise>> {
         let mut media_list = self.get_media_list().await?;
-        let mut visited_media_list = media_list
+        let mut visited_ids = media_list
             .iter()
-            .map(|media| VisitedMedia {
-                id: media.id,
-                title: media.title.user_preferred.to_owned(),
-                start_date: media.start_date,
-            })
+            .map(|media| media.id)
             .collect::<HashSet<_>>();
         let mut franchise_graph = UnGraphMap::from_edges(media_list.iter().flat_map(|media| {
             media.relations.edges.iter().filter_map(|relation| {
@@ -161,11 +134,7 @@ impl AniList {
         }));
 
         loop {
-            let ids = &franchise_graph.nodes().collect()
-                - &visited_media_list
-                    .iter()
-                    .map(|media| media.id)
-                    .collect::<HashSet<_>>();
+            let ids = &franchise_graph.nodes().collect() - &visited_ids;
 
             if ids.len() == 0 {
                 break;
@@ -214,12 +183,6 @@ impl AniList {
                             }) {
                                 franchise_graph.add_edge(media.id, relation.node.id, ());
                             }
-
-                            visited_media_list.insert(VisitedMedia {
-                                id: media.id,
-                                title: media.title.user_preferred.to_owned(),
-                                start_date: media.start_date,
-                            });
                         }
 
                         if !data.page.page_info.has_next_page {
@@ -238,20 +201,15 @@ impl AniList {
                     }
                 }
             }
+
+            visited_ids.extend(&ids);
         }
 
         media_list.sort_by_key(|media| media.start_date);
-        let mut visited_media_list = visited_media_list.into_iter().collect::<Vec<_>>();
-        visited_media_list.sort_by_key(|media| media.start_date);
 
         let mut franchises = tarjan_scc(&franchise_graph)
             .iter()
             .map(|franchise| Franchise {
-                title: visited_media_list
-                    .iter()
-                    .find(|media| franchise.contains(&media.id))
-                    .map(|media| media.title.to_owned())
-                    .unwrap_or_default(),
                 entries: media_list
                     .iter()
                     .filter_map(|media| {
@@ -264,7 +222,13 @@ impl AniList {
                     .collect(),
             })
             .collect::<Vec<_>>();
-        franchises.sort_by(|a, b| a.title.cmp(&b.title));
+        franchises.sort_by(|a, b| {
+            a.entries
+                .iter()
+                .map(|entry| &entry.title)
+                .next()
+                .cmp(&b.entries.iter().map(|entry| &entry.title).next())
+        });
 
         Ok(franchises)
     }
