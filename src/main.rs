@@ -9,7 +9,10 @@ async fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
-        println!("usage: {} username", args[0]);
+        println!(
+            "usage: {} username",
+            args.into_iter().next().unwrap_or("statsu".to_string())
+        );
         process::exit(1);
     }
 

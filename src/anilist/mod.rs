@@ -16,10 +16,12 @@ use reqwest::{
 use serde_json::json;
 use std::collections::HashSet;
 
+#[derive(Clone)]
 pub(crate) struct Franchise {
     pub(crate) entries: Vec<Media>,
 }
 
+#[derive(Clone)]
 pub(crate) struct Media {
     pub(crate) title: String,
 }
@@ -222,12 +224,12 @@ impl AniList {
                     .collect(),
             })
             .collect::<Vec<_>>();
-        franchises.sort_by(|a, b| {
-            a.entries
+        franchises.sort_by_key(|franchise| {
+            franchise
+                .entries
                 .iter()
-                .map(|entry| &entry.title)
+                .map(|entry| entry.title.to_owned())
                 .next()
-                .cmp(&b.entries.iter().map(|entry| &entry.title).next())
         });
 
         Ok(franchises)
@@ -242,7 +244,7 @@ impl AniList {
         });
 
         if let Err(e) = self.lim.check() {
-            bail!("{e}");
+            bail!(e);
         }
 
         let res = self
@@ -255,7 +257,7 @@ impl AniList {
             .json::<api::Result>()
             .await?;
 
-        match res {
+        match &res {
             api::Result::MediaList { data } => {
                 if let Some(media_list) = data.media_list_collection.lists.iter().next() {
                     return Ok(media_list

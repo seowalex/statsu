@@ -5,9 +5,9 @@ use std::cmp::Ordering;
 #[serde(untagged)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Result {
+    Error { errors: Vec<Error> },
     Media { data: MediaData },
     MediaList { data: MediaListData },
-    Error { errors: Vec<Error> },
 }
 
 #[derive(Clone, Deserialize)]
@@ -28,6 +28,13 @@ pub(crate) struct MediaData {
 pub(crate) struct Page {
     pub(crate) page_info: PageInfo,
     pub(crate) media: Vec<MediaIdAndRelations>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MediaIdAndRelations {
+    pub(crate) id: i32,
+    pub(crate) relations: MediaConnection,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -66,13 +73,6 @@ pub(crate) struct Media {
     pub(crate) id: i32,
     pub(crate) title: MediaTitle,
     pub(crate) start_date: FuzzyDate,
-    pub(crate) relations: MediaConnection,
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct MediaIdAndRelations {
-    pub(crate) id: i32,
     pub(crate) relations: MediaConnection,
 }
 
