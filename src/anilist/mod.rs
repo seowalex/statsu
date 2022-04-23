@@ -119,7 +119,7 @@ impl AniList {
             .collect::<HashSet<_>>();
         let mut franchise_graph = UnGraphMap::from_edges(media_list.iter().flat_map(|media| {
             media.relations.edges.iter().filter_map(|relation| {
-                return match (relation.relation_type, relation.node.r#type) {
+                match (relation.relation_type, relation.node.r#type) {
                     (
                         api::MediaRelation::Prequel
                         | api::MediaRelation::Sequel
@@ -131,14 +131,14 @@ impl AniList {
                         api::MediaType::Anime,
                     ) => Some((media.id, relation.node.id)),
                     _ => None,
-                };
+                }
             })
         }));
 
         loop {
             let ids = &franchise_graph.nodes().collect() - &visited_ids;
 
-            if ids.len() == 0 {
+            if ids.is_empty() {
                 break;
             }
 
@@ -169,19 +169,19 @@ impl AniList {
                     api::Result::Media { data } => {
                         for media in &data.page.media {
                             for relation in media.relations.edges.iter().filter(|relation| {
-                                return match (relation.relation_type, relation.node.r#type) {
+                                matches!(
+                                    (relation.relation_type, relation.node.r#type),
                                     (
                                         api::MediaRelation::Prequel
-                                        | api::MediaRelation::Sequel
-                                        | api::MediaRelation::Parent
-                                        | api::MediaRelation::SideStory
-                                        | api::MediaRelation::Summary
-                                        | api::MediaRelation::Alternative
-                                        | api::MediaRelation::SpinOff,
+                                            | api::MediaRelation::Sequel
+                                            | api::MediaRelation::Parent
+                                            | api::MediaRelation::SideStory
+                                            | api::MediaRelation::Summary
+                                            | api::MediaRelation::Alternative
+                                            | api::MediaRelation::SpinOff,
                                         api::MediaType::Anime,
-                                    ) => true,
-                                    _ => false,
-                                };
+                                    )
+                                )
                             }) {
                                 franchise_graph.add_edge(media.id, relation.node.id, ());
                             }
@@ -207,7 +207,7 @@ impl AniList {
             visited_ids.extend(&ids);
         }
 
-        media_list.sort_by_key(|media| media.start_date);
+        media_list.sort_unstable_by_key(|media| media.start_date);
 
         let mut franchises = tarjan_scc(&franchise_graph)
             .iter()
@@ -259,7 +259,7 @@ impl AniList {
 
         match &res {
             api::Result::MediaList { data } => {
-                if let Some(media_list) = data.media_list_collection.lists.iter().next() {
+                if let Some(media_list) = data.media_list_collection.lists.get(0) {
                     return Ok(media_list
                         .entries
                         .iter()

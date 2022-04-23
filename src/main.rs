@@ -11,7 +11,9 @@ async fn main() -> Result<()> {
     if args.len() != 2 {
         println!(
             "usage: {} username",
-            args.into_iter().next().unwrap_or("statsu".to_string())
+            args.into_iter()
+                .next()
+                .unwrap_or_else(|| "statsu".to_string())
         );
         process::exit(1);
     }
