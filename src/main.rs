@@ -2,21 +2,20 @@ mod anilist;
 
 use anilist::AniList;
 use anyhow::Result;
-use std::{env, process};
+use clap::Parser;
+
+#[derive(Parser)]
+#[clap(version)]
+struct Cli {
+    /// AniList user name
+    username: String,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = env::args().collect::<Vec<_>>();
+    let cli = Cli::parse();
 
-    if args.len() != 2 {
-        println!(
-            "usage: {} username",
-            args.get(0).unwrap_or(&"statsu".to_string())
-        );
-        process::exit(1);
-    }
-
-    let anilist = AniList::new(&args[1]);
+    let anilist = AniList::new(&cli.username);
     let franchises = anilist.get_franchises().await?;
 
     for franchise in &franchises {
