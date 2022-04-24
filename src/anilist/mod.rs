@@ -6,8 +6,8 @@ use governor::{
     state::{InMemoryState, NotKeyed},
     Quota, RateLimiter,
 };
-use lazy_static::lazy_static;
 use nonzero_ext::nonzero;
+use once_cell::sync::Lazy;
 use petgraph::{algo::tarjan_scc, graphmap::UnGraphMap};
 use reqwest::{
     header::{HeaderMap, ACCEPT, CONTENT_TYPE},
@@ -16,12 +16,12 @@ use reqwest::{
 use serde_json::json;
 use std::collections::HashSet;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Franchise {
     pub(crate) entries: Vec<Media>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Media {
     pub(crate) title: String,
 }
@@ -33,6 +33,13 @@ impl From<&api::Media> for Media {
         }
     }
 }
+
+static HEADERS: Lazy<HeaderMap> = Lazy::new(|| {
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_TYPE, "application/json".parse().unwrap());
+    headers.insert(ACCEPT, "application/json".parse().unwrap());
+    headers
+});
 
 static MEDIA_QUERY: &str = "
     query ($ids: [Int], $page: Int) {
@@ -86,15 +93,6 @@ static MEDIA_LIST_QUERY: &str = "
         }
     }
 ";
-
-lazy_static! {
-    static ref HEADERS: HeaderMap = {
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, "application/json".parse().unwrap());
-        headers.insert(ACCEPT, "application/json".parse().unwrap());
-        headers
-    };
-}
 
 pub(crate) struct AniList {
     client: Client,
@@ -158,7 +156,7 @@ impl AniList {
                 let res = self
                     .client
                     .post("https://graphql.anilist.co/")
-                    .headers((*HEADERS).to_owned())
+                    .headers(HEADERS.to_owned())
                     .json(&body)
                     .send()
                     .await?
@@ -194,7 +192,7 @@ impl AniList {
                         page += 1;
                     }
                     api::Result::Error { errors } => {
-                        if let Some(error) = errors.iter().next() {
+                        if let Some(error) = errors.get(0) {
                             bail!("{}: {}", error.status, error.message);
                         }
                     }
@@ -243,14 +241,12 @@ impl AniList {
             }
         });
 
-        if let Err(e) = self.lim.check() {
-            bail!(e);
-        }
+        self.lim.until_ready().await;
 
         let res = self
             .client
             .post("https://graphql.anilist.co/")
-            .headers((*HEADERS).to_owned())
+            .headers(HEADERS.to_owned())
             .json(&body)
             .send()
             .await?
@@ -268,7 +264,7 @@ impl AniList {
                 }
             }
             api::Result::Error { errors } => {
-                if let Some(error) = errors.iter().next() {
+                if let Some(error) = errors.get(0) {
                     bail!("{}: {}", error.status, error.message);
                 }
             }

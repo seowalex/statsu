@@ -6,14 +6,12 @@ use std::{env, process};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
+    let args = env::args().collect::<Vec<_>>();
 
     if args.len() != 2 {
         println!(
             "usage: {} username",
-            args.into_iter()
-                .next()
-                .unwrap_or_else(|| "statsu".to_string())
+            args.get(0).unwrap_or(&"statsu".to_string())
         );
         process::exit(1);
     }

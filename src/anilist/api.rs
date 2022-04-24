@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::cmp::Ordering;
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Result {
@@ -10,64 +10,64 @@ pub(crate) enum Result {
     MediaList { data: MediaListData },
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Error {
     pub(crate) status: u16,
     pub(crate) message: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct MediaData {
     pub(crate) page: Page,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Page {
     pub(crate) page_info: PageInfo,
     pub(crate) media: Vec<MediaIdAndRelations>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaIdAndRelations {
     pub(crate) id: i32,
     pub(crate) relations: MediaConnection,
 }
 
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PageInfo {
     pub(crate) has_next_page: bool,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct MediaListData {
     pub(crate) media_list_collection: MediaListCollection,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaListCollection {
     pub(crate) lists: Vec<MediaListGroup>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaListGroup {
     pub(crate) entries: Vec<MediaList>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaList {
     pub(crate) media: Media,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Media {
     pub(crate) id: i32,
@@ -76,13 +76,13 @@ pub(crate) struct Media {
     pub(crate) relations: MediaConnection,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaTitle {
     pub(crate) user_preferred: String,
 }
 
-#[derive(Clone, Copy, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FuzzyDate {
     year: Option<i32>,
@@ -122,20 +122,20 @@ impl Ord for FuzzyDate {
     }
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaConnection {
     pub(crate) edges: Vec<MediaEdge>,
 }
 
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaEdge {
     pub(crate) relation_type: MediaRelation,
     pub(crate) node: MediaIdAndType,
 }
 
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub(crate) enum MediaRelation {
     Adaptation,
@@ -153,14 +153,14 @@ pub(crate) enum MediaRelation {
     Contains,
 }
 
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MediaIdAndType {
     pub(crate) id: i32,
     pub(crate) r#type: MediaType,
 }
 
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub(crate) enum MediaType {
     Anime,

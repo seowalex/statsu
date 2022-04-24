@@ -905,8 +905,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "governor",
- "lazy_static",
  "nonzero_ext",
+ "once_cell",
  "petgraph",
  "reqwest",
  "serde",
