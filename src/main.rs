@@ -5,7 +5,7 @@ use anyhow::Result;
 use clap::Parser;
 
 #[derive(Parser)]
-#[clap(version)]
+#[command(version)]
 struct Cli {
     /// AniList user name
     username: String,
